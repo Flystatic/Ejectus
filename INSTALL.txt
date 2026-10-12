@@ -1,5 +1,5 @@
 Ejectus — removes macOS junk (.DS_Store, ._ files, .Spotlight-V100, .fseventsd,
-.Trashes, ...) from SD cards and external drives.
+.Trashes, ...) from SD cards and external drives when you eject them.
 
 INSTALL
 1. Drag Ejectus into the Applications folder.
@@ -7,20 +7,20 @@ INSTALL
    (macOS asks because this app isn't from the App Store.)
    If there's no Open button: System Settings > Privacy & Security >
    scroll down > "Open Anyway" next to Ejectus.
-3. A drive icon appears in the menu bar.
-4. System Settings > Privacy & Security > Full Disk Access: add Ejectus and
-   switch it on. (Needed to remove .Trashes and .TemporaryItems.)
-5. Menu bar icon > "Set Up Spotlight Helper..." and enter your password.
-   You'll get a notice "Spotlight helper is on".
+3. A "Set Up Ejectus" window appears. Click each button until all three
+   items are ticked:
+   - Full Disk Access (in Settings: click +, choose Ejectus, switch it on)
+   - Spotlight helper (asks for your password once)
+   - Start at login
+   You can reopen it any time: menu bar icon > Setup...
 
 USE
 - Eject a drive normally: it is cleaned first.
 - Or right-click a drive in Finder > Services > Clean Junk Files.
 - Or use the menu bar icon: Clean & Eject.
 - Menu switches: Clean When Ejecting, Empty Drive Trash (on by default),
-  Open at Login. Every clean is logged to ~/Library/Logs/Ejectus.log.
-- Skip This Drive (under each drive in the menu): never clean that drive,
-  e.g. a Mac-only editing drive.
+  Open at Login, and Skip This Drive under each drive.
+- Every clean is logged to ~/Library/Logs/Ejectus.log.
 
 Only external drives are touched. Never your main disk, Time Machine, or network drives.
 Note: deleting ._ files also removes Finder tags/labels on files on that drive.

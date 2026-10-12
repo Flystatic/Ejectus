@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var watcher: DiskWatcher!
     private let defaults = UserDefaults.standard
     private let work = DispatchQueue(label: "Ejectus.work")
+    private var setupWindow: SetupWindowController?
 
     private var cleanOnEject: Bool {
         get { defaults.object(forKey: "cleanOnEject") as? Bool ?? true }
@@ -32,7 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             })
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
-        work.async { SpotlightHelper.ping() }
+        work.async { [self] in
+            SpotlightHelper.ping()
+            DispatchQueue.main.async { [self] in
+                Self.log("setup", "full disk access: \(SetupWindowController.hasFullDiskAccess), "
+                    + "helper: \(SetupWindowController.helperReady), login: \(SetupWindowController.startsAtLogin)")
+                if Bundle.main.bundlePath.hasPrefix("/Applications/"),  // not test copies
+                   !SetupWindowController.isComplete, !defaults.bool(forKey: "setupDismissed") { showSetup() }
+            }
+        }
 
         if !defaults.bool(forKey: "didSetUpLoginItem") {
             try? SMAppService.mainApp.register()
@@ -93,12 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         trash.target = self
         trash.state = defaults.emptyDriveTrash ? .on : .off
 
-        if SpotlightHelper.isReady, !SpotlightHelper.lastCallFailed {
-            menu.addItem(withTitle: "Spotlight Helper: On", action: nil, keyEquivalent: "")
-        } else {
-            let title = SpotlightHelper.isReady ? "Repair Spotlight Helper…" : "Set Up Spotlight Helper…"
-            let helper = menu.addItem(withTitle: title, action: #selector(setUpHelper), keyEquivalent: "")
-            helper.target = self
+        let setup = menu.addItem(withTitle: SetupWindowController.isComplete ? "Setup…" : "Finish Setup…",
+                                 action: #selector(showSetup), keyEquivalent: "")
+        setup.target = self
+        if !SetupWindowController.isComplete {
+            setup.image = NSImage(systemSymbolName: "exclamationmark.circle", accessibilityDescription: "Setup incomplete")
         }
 
         let login = menu.addItem(withTitle: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
@@ -132,6 +140,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleEmptyTrash() { defaults.emptyDriveTrash.toggle() }
 
     /// Registers the root helper; macOS then needs the user to switch it on in Login Items.
+    /// The setup checklist. Opens at launch until everything's approved (or the user closes it).
+    @objc private func showSetup() {
+        if setupWindow == nil {
+            let window = SetupWindowController(
+                installHelper: { [weak self] in self?.setUpHelper() },
+                turnOnLogin: { [weak self] in
+                    if !SetupWindowController.startsAtLogin { self?.toggleLogin() }
+                })
+            window.onClose = { [weak self] in
+                self?.defaults.set(true, forKey: "setupDismissed")
+                self?.setupWindow = nil
+            }
+            setupWindow = window
+        }
+        setupWindow?.present()
+    }
+
     @objc private func setUpHelper() {
         guard Bundle.main.bundlePath.hasPrefix("/Applications/") else {
             return notify("Ejectus", text: "Move Ejectus to Applications first, then set up the helper.")

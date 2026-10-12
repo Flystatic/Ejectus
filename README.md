@@ -23,13 +23,16 @@ There's no plain "Clean" button: while a drive stays plugged in, macOS rebuilds
 Only touches external/removable drives. Never the internal disk, Time Machine, or network drives.
 
 ### Setup
+On first launch a **Set Up Ejectus** window walks through these three steps with buttons and live
+ticks (reopen it from the menu bar icon → Setup…):
+
 1. **Full Disk Access:** System Settings → Privacy & Security → Full Disk Access → add Ejectus.
    Recent macOS locks `.Trashes` and `.TemporaryItems` on drives; without this they stay.
 2. **Spotlight helper:** `.Spotlight-V100` is locked even from Full Disk Access, so a tiny root
-   helper removes it with `mdutil -X`. Menu bar icon → "Set Up Spotlight Helper…" and enter your
-   password once. It installs to `/Library/PrivilegedHelperTools/local.ejectus.privhelper` with a
+   helper removes it with `mdutil -X`. Click Install and enter your password once. It installs to `/Library/PrivilegedHelperTools/local.ejectus.privhelper` with a
    launchd entry in `/Library/LaunchDaemons`, and only ever runs `mdutil -X` on a verified
    external drive. App updates don't affect it.
+3. **Start at login:** keeps Ejectus running so every eject gets cleaned.
 
 To remove the helper:
 ```
