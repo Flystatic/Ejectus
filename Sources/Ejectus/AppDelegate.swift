@@ -160,10 +160,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleLogin() {
-        if SMAppService.mainApp.status == .enabled {
-            try? SMAppService.mainApp.unregister()
+        let app = SMAppService.mainApp
+        if app.status == .enabled {
+            try? app.unregister()
         } else {
-            try? SMAppService.mainApp.register()
+            do { try app.register() } catch { Self.log("login", "register failed: \(error)") }
+            // Switched off by the user in System Settings: only they can turn it back on there.
+            if app.status != .enabled { SMAppService.openSystemSettingsLoginItems() }
         }
     }
 
