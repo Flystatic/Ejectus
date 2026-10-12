@@ -23,7 +23,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleShortVersionString</key><string>2.2</string>
-    <key>CFBundleVersion</key><string>4</string>
+    <key>CFBundleVersion</key><string>BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSServices</key>
@@ -40,21 +40,22 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# Root helper (same binary, run with --helper). Registered via SMAppService.daemon.
-mkdir -p "$APP/Contents/Library/LaunchDaemons"
-cat > "$APP/Contents/Library/LaunchDaemons/local.ejectus.helper.plist" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key><string>local.ejectus.helper</string>
-    <key>BundleProgram</key><string>Contents/MacOS/Ejectus</string>
-    <key>ProgramArguments</key><array><string>Ejectus</string><string>--helper</string></array>
-    <key>MachServices</key><dict><key>local.ejectus.helper</key><true/></dict>
-    <key>AssociatedBundleIdentifiers</key><array><string>local.ejectus</string></array>
-</dict>
-</plist>
-PLIST
+# Unique build number every build, so each installed build is identifiable.
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(date +%Y%m%d%H%M%S)" "$APP/Contents/Info.plist"
 
-codesign --force --sign - --identifier local.ejectus "$APP"
+# Spotlight helper: a standalone copy of the binary plus its installer (see install-helper.sh).
+cp "$BIN" "$APP/Contents/Resources/EjectusHelper"
+cp install-helper.sh "$APP/Contents/Resources/install-helper.sh"
+
+# Sign with a stable local certificate if one exists, so macOS keeps Full Disk Access and the
+# helper approval across updates. Otherwise fall back to ad-hoc (approvals reset each build).
+IDENTITY="Ejectus Local Signing"
+if security find-identity -p codesigning | grep -q "\"$IDENTITY\""; then
+    codesign --force --sign "$IDENTITY" --identifier local.ejectus.privhelper "$APP/Contents/Resources/EjectusHelper"
+    codesign --force --sign "$IDENTITY" --identifier local.ejectus "$APP"
+else
+    echo "note: no \"$IDENTITY\" certificate; signing ad-hoc"
+    codesign --force --sign - --identifier local.ejectus.privhelper "$APP/Contents/Resources/EjectusHelper"
+    codesign --force --sign - --identifier local.ejectus "$APP"
+fi
 echo "Built $APP"

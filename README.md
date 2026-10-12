@@ -22,9 +22,20 @@ There's no plain "Clean" button: while a drive stays plugged in, macOS rebuilds
 
 Only touches external/removable drives. Never the internal disk, Time Machine, or network drives.
 
-`.Spotlight-V100` is locked by macOS, so a small root helper removes it with `mdutil -X`.
-Turn it on from the menu bar icon → "Set Up Spotlight Helper…", then switch Ejectus on in
-System Settings → Login Items. The helper only ever runs `mdutil -X` on a verified external drive.
+### Setup
+1. **Full Disk Access:** System Settings → Privacy & Security → Full Disk Access → add Ejectus.
+   Recent macOS locks `.Trashes` and `.TemporaryItems` on drives; without this they stay.
+2. **Spotlight helper:** `.Spotlight-V100` is locked even from Full Disk Access, so a tiny root
+   helper removes it with `mdutil -X`. Menu bar icon → "Set Up Spotlight Helper…" and enter your
+   password once. It installs to `/Library/PrivilegedHelperTools/local.ejectus.privhelper` with a
+   launchd entry in `/Library/LaunchDaemons`, and only ever runs `mdutil -X` on a verified
+   external drive. App updates don't affect it.
+
+To remove the helper:
+```
+sudo launchctl bootout system/local.ejectus.privhelper
+sudo rm /Library/LaunchDaemons/local.ejectus.privhelper.plist /Library/PrivilegedHelperTools/local.ejectus.privhelper
+```
 
 ## Download
 Get `Ejectus-x.y.dmg` from the [Releases](https://github.com/Flystatic/Ejectus/releases) page.
@@ -40,4 +51,8 @@ right-click → Open (or System Settings → Privacy & Security → Open Anyway)
 
 ## Install on another Mac
 Copy `Ejectus.app` to `/Applications`, then right-click → Open the first time.
-Then set up the Spotlight helper from the menu bar icon (see above).
+Then do the Setup steps above.
+
+Builds are signed with a local "Ejectus Local Signing" certificate when the build machine has one,
+so macOS keeps Full Disk Access across updates. Without it, `build.sh` signs ad-hoc and Full Disk
+Access has to be granted again after each update.

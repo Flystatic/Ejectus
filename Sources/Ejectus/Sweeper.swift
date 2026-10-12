@@ -7,14 +7,18 @@ struct SweepResult {
     var timedOut = false
     var spotlightLeft = false
     var errors: [String] = []  // first few failures, for the log
+    var unreadable = false     // couldn't even list the drive
 
     var summary: String {
         let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
         var s = removed == 0 ? "Already clean" : "Removed \(removed) junk item\(removed == 1 ? "" : "s") (\(size))"
         if failed > 0 { s += ", \(failed) couldn't be removed" }
         if timedOut { s += ", stopped early (time limit)" }
-        if spotlightLeft { s += ". Spotlight folder needs the helper (see menu)" }
-        if bytes == 0, removed == 0, !errors.isEmpty { s = "Couldn't read the drive — see ~/Library/Logs/Ejectus.log" }
+        if spotlightLeft {
+            s += SpotlightHelper.isReady ? ". Spotlight folder couldn't be removed (see log)"
+                                         : ". Spotlight folder needs the helper (see menu)"
+        }
+        if unreadable { s = "Couldn't read the drive — see ~/Library/Logs/Ejectus.log" }
         return s
     }
 }
@@ -64,6 +68,7 @@ enum Sweeper {
             if e.fts_level == 0, info == FTS_DNR || info == FTS_ERR {
                 noteError(path, e.fts_errno)
                 result.failed += 1
+                result.unreadable = true
                 continue
             }
 

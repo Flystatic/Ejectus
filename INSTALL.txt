@@ -8,9 +8,10 @@ INSTALL
    If there's no Open button: System Settings > Privacy & Security >
    scroll down > "Open Anyway" next to Ejectus.
 3. A drive icon appears in the menu bar.
-4. Click it > "Set Up Spotlight Helper...". In System Settings > Login Items,
-   switch Ejectus on under "Allow in the Background".
-   The menu should now say "Spotlight Helper: On".
+4. System Settings > Privacy & Security > Full Disk Access: add Ejectus and
+   switch it on. (Needed to remove .Trashes and .TemporaryItems.)
+5. Menu bar icon > "Set Up Spotlight Helper..." and enter your password.
+   You'll get a notice "Spotlight helper is on".
 
 USE
 - Eject a drive normally: it is cleaned first.

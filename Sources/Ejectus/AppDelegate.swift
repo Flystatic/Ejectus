@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             })
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+        work.async { SpotlightHelper.ping() }
 
         if !defaults.bool(forKey: "didSetUpLoginItem") {
             try? SMAppService.mainApp.register()
@@ -92,10 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         trash.target = self
         trash.state = defaults.emptyDriveTrash ? .on : .off
 
-        if SpotlightHelper.isReady {
+        if SpotlightHelper.isReady, !SpotlightHelper.lastCallFailed {
             menu.addItem(withTitle: "Spotlight Helper: On", action: nil, keyEquivalent: "")
         } else {
-            let helper = menu.addItem(withTitle: "Set Up Spotlight Helper…", action: #selector(setUpHelper), keyEquivalent: "")
+            let title = SpotlightHelper.isReady ? "Repair Spotlight Helper…" : "Set Up Spotlight Helper…"
+            let helper = menu.addItem(withTitle: title, action: #selector(setUpHelper), keyEquivalent: "")
             helper.target = self
         }
 
@@ -131,8 +133,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Registers the root helper; macOS then needs the user to switch it on in Login Items.
     @objc private func setUpHelper() {
-        try? SpotlightHelper.service.register()
-        if !SpotlightHelper.isReady { SMAppService.openSystemSettingsLoginItems() }
+        guard Bundle.main.bundlePath.hasPrefix("/Applications/") else {
+            return notify("Ejectus", text: "Move Ejectus to Applications first, then set up the helper.")
+        }
+        guard let script = Bundle.main.path(forResource: "install-helper", ofType: "sh") else { return }
+        work.async { [self] in
+            // macOS shows its own password dialog for "with administrator privileges".
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            p.arguments = ["-e", "do shell script \"/bin/sh \" & quoted form of \"\(script)\" with administrator privileges"]
+            let errPipe = Pipe()
+            p.standardError = errPipe
+            p.standardOutput = FileHandle.nullDevice
+            do { try p.run() } catch { return Self.log("helper", "install failed to start: \(error)") }
+            let err = String(decoding: errPipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            p.waitUntilExit()
+            guard p.terminationStatus == 0 else {
+                Self.log("helper", "install failed: \(err.trimmingCharacters(in: .whitespacesAndNewlines))")
+                return
+            }
+            SpotlightHelper.ping()
+            Self.log("helper", SpotlightHelper.lastCallFailed ? "installed but not answering" : "installed and answering")
+            notify("Ejectus", text: SpotlightHelper.lastCallFailed ? "Spotlight helper installed but not answering — see log"
+                                                                   : "Spotlight helper is on")
+        }
     }
 
     @objc private func toggleLogin() {
@@ -162,9 +186,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Appends one entry per clean to ~/Library/Logs/Ejectus.log (kept under ~200 KB).
     private static func log(_ trigger: String, _ name: String, _ result: SweepResult) {
-        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Ejectus.log")
         var entry = "\(Date()) [\(trigger)] \(name): \(result.summary)\n"
         for error in result.errors { entry += "    \(error)\n" }
+        log(entry)
+    }
+
+    private static func log(_ trigger: String, _ message: String) {
+        log("\(Date()) [\(trigger)] \(message)\n")
+    }
+
+    private static func log(_ entry: String) {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Ejectus.log")
         if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 200_000 {
             try? FileManager.default.removeItem(at: url)
         }
